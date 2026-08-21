@@ -192,8 +192,8 @@
     const CLOUDINARY_CLOUD = "deaevfmvm", CLOUDINARY_PRESET = "ml_default", CLOUDINARY_KEY = "864215656447737";
     const GRADES = ['الأول الإعدادي','الثاني الإعدادي','الثالث الإعدادي','الأول الثانوي','الثاني الثانوي','الثالث الثانوي'];
     const SUBJECTS = {
-        'الأول الإعدادي':'Science','الثاني الإعدادي':'Science','الثالث الإعدادي':'Science',
-        'الأول الثانوي':'Integrated Science','الثاني الثانوي':'Physics','الثالث الثانوي':'Physics'
+        'الأول الإعدادي':'دراسات','الثاني الإعدادي':'دراسات','الثالث الإعدادي':'دراسات',
+        'الأول الثانوي':' تاريخ','الثاني الثانوي':'تاريخ','الثالث الثانوي':'تاريخ و جغرافيا'
     };
     const container = document.getElementById('adminContent');
     const sidebarLinks = document.querySelectorAll('.sidebar nav a');
@@ -626,7 +626,7 @@
     async function renderSettings() {
         const d = await db.collection('settings').doc('platform').get().catch(()=>null);
         const data = (d&&d.exists)?d.data():{};
-        container.innerHTML = `<div class="card fade-in-up"><h3>⚙️ إعدادات المنصة</h3><div class="form-group"><label>اسم المنصة</label><input id="setName" value="${data.name||'Mr. Ahmed Alhout'}"></div><div class="form-group"><label>الشعار النصي</label><input id="setSlogan" value="${data.slogan||'Science & Physics'}"></div><div class="form-group"><label>لوجو المنصة</label><button class="btn" onclick="window.uploadLogo()">📷 رفع لوجو</button><img id="logoPreview" src="${data.logo||''}" style="width:60px;margin-top:8px;border-radius:12px;"></div><button class="btn btn-primary" onclick="window.saveSettings()">حفظ</button></div>`;
+        container.innerHTML = `<div class="card fade-in-up"><h3>⚙️ إعدادات المنصة</h3><div class="form-group"><label>اسم المنصة</label><input id="setName" value="${data.name||'Mr. Ahmed Alhout'}"></div><div class="form-group"><label>الشعار النصي</label><input id="setSlogan" value="${data.slogan||'تاريخ & جغرافيا'}"></div><div class="form-group"><label>لوجو المنصة</label><button class="btn" onclick="window.uploadLogo()">📷 رفع لوجو</button><img id="logoPreview" src="${data.logo||''}" style="width:60px;margin-top:8px;border-radius:12px;"></div><button class="btn btn-primary" onclick="window.saveSettings()">حفظ</button></div>`;
     }
     window.uploadLogo = () => { window.cloudinary.openUploadWidget({ cloudName:CLOUDINARY_CLOUD, uploadPreset:CLOUDINARY_PRESET, apiKey:CLOUDINARY_KEY, sources:['local','camera'], multiple:false, resourceType:'image', clientAllowedFormats:['png','jpg','jpeg'], maxFileSize:2000000, language:'ar' }, (e,r) => { if(!e&&r?.event==='success'){document.getElementById('logoPreview').src=r.info.secure_url; window._uploadedLogo=r.info.secure_url;} }); };
     window.saveSettings = async () => { const n=document.getElementById('setName').value, s=document.getElementById('setSlogan').value, l=window._uploadedLogo||document.getElementById('logoPreview').src; await db.collection('settings').doc('platform').set({name:n,slogan:s,logo:l},{merge:true}); alert('تم الحفظ'); if(l) document.getElementById('sidebarLogo').innerHTML=`<img src="${l}" alt="لوجو">`; else document.getElementById('sidebarLogo').innerHTML='A'; };
