@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة تحكم الأدمن | Mr. Mohammed Elhafawy</title>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+    <script src="https://widget.cloudinary.com/v2.0/global/all.js"></script>
+    <style>
+        :root {
+            --bg-primary: #f6f4f0; --bg-card: #ffffff; --text-primary: #1e2a3a;
+            --text-secondary: #4a5568; --text-muted: #718096; --border-color: #e2dcd0;
+            --accent-1: #3182ce; --accent-2: #2b6cb0; --accent-3: #2c7a7b; --danger: #c53030;
+            --gradient-1: linear-gradient(135deg, #3182ce, #2b6cb0, #2c7a7b);
+            --radius-lg: 20px; --radius-md: 14px; --shadow-sm: 0 1px 3px rgba(0,0,0,0.04);
+            --shadow-md: 0 4px 12px rgba(0,0,0,0.06); --font: 'Cairo', sans-serif;
+            --transition: 0.3s cubic-bezier(0.4,0,0.2,1);
+        }
+        body.dark {
+            --bg-primary: #1a202c; --bg-card: #2d3748; --text-primary: #e2e8f0;
+            --text-secondary: #a0aec0; --text-muted: #718096; --border-color: #4a5568;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.3); --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
+        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:var(--font); background:var(--bg-primary); color:var(--text-primary); display:flex; min-height:100vh; transition: background 0.3s, color 0.3s; }
+        @keyframes fadeInUp { from{opacity:0;transform:translateY(16px);} to{opacity:1;transform:translateY(0);} }
+        .fade-in-up { animation:fadeInUp 0.4s ease both; }
+        .sidebar {
+            width:260px; background:var(--bg-card); border-left:1px solid var(--border-color);
+            padding:24px 14px; display:flex; flex-direction:column; gap:4px; flex-shrink:0;
+            z-index:50; transition:transform 0.3s; box-shadow:var(--shadow-sm);
+        }
+        .sidebar .logo-icon {
+            width:42px; height:42px; border-radius:var(--radius-md); background:var(--gradient-1);
+            display:flex; align-items:center; justify-content:center; font-weight:700; color:#fff;
+            margin-bottom:20px; overflow:hidden; font-size:1.1rem;
+        }
+        .sidebar .logo-icon img { width:100%; height:100%; object-fit:cover; border-radius:inherit; }
+        .sidebar nav a {
+            display:block; padding:10px 14px; border-radius:24px; color:var(--text-secondary);
+            text-decoration:none; font-weight:500; font-size:0.88rem; margin-bottom:3px; cursor:pointer; transition:0.2s;
+        }
+        .sidebar nav a.active, .sidebar nav a:hover { background:rgba(49,130,206,0.08); color:var(--accent-2); }
+        .main { flex:1; display:flex; flex-direction:column; overflow-y:auto; max-height:100vh; background:var(--bg-primary); }
+        .topbar {
+            padding:14px 24px; display:flex; justify-content:space-between; align-items:center;
+            background:var(--bg-card); border-bottom:1px solid var(--border-color);
+            position:sticky; top:0; z-index:20; box-shadow:var(--shadow-sm);
+        }
+        .topbar h2 {
+            font-size:1.2rem; font-weight:700;
+            background:var(--gradient-1); -webkit-background-clip:text;
+            -webkit-text-fill-color:transparent; background-clip:text;
+        }
+        .btn {
+            padding:8px 16px; border-radius:24px; font-weight:600; font-size:0.82rem;
+            border:1.5px solid var(--border-color); background:var(--bg-card); color:var(--text-primary);
+            cursor:pointer; transition:0.2s; display:inline-flex; align-items:center; gap:6px; text-decoration:none;
+        }
+        .btn:hover { background:rgba(0,0,0,0.02); border-color:var(--accent-2); }
+        .btn-primary { background:var(--gradient-1); border:none; color:#fff; }
+        .btn-primary:hover { opacity:0.9; }
+        .btn-danger { background:rgba(197,48,48,0.08); border-color:rgba(197,48,48,0.3); color:var(--danger); }
+        .btn-danger:hover { background:rgba(197,48,48,0.15); }
+        .btn-sm { padding:5px 10px; font-size:0.72rem; }
+        .btn-whatsapp { background:#25D366; color:#fff; border:none; }
+        .btn-whatsapp:hover { background:#1da851; }
+        .content { padding:24px; }
+        .card {
+            background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-lg);
+            padding:20px; margin-bottom:20px; box-shadow:var(--shadow-sm); transition: background 0.3s;
+        }
+        .stats-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(180px,1fr)); gap:16px; }
+        .stat-box { text-align:center; padding:18px; }
+        .stat-box .value { font-size:2rem; font-weight:800; background:var(--gradient-1); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+        .stat-box .label { font-size:0.8rem; color:var(--text-muted); }
+        .grade-filter-bar { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
+        .grade-filter-bar button {
+            padding:6px 14px; border-radius:20px; font-size:0.78rem; font-weight:600;
+            border:1.5px solid var(--border-color); background:var(--bg-card); color:var(--text-secondary);
+            cursor:pointer; transition:0.2s; white-space:nowrap;
+        }
+        .grade-filter-bar button.active { background:var(--gradient-1); color:#fff; border-color:transparent; }
+        .form-group { margin-bottom:16px; }
+        .form-group label { display:block; font-size:0.85rem; margin-bottom:6px; color:var(--text-secondary); }
+        .form-group input, .form-group select, .form-group textarea {
+            width:100%; padding:10px 14px; border-radius:30px; border:1.5px solid var(--border-color);
+            background:var(--bg-card); color:var(--text-primary); font-family:var(--font); font-size:0.9rem; outline:none;
+        }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color:var(--accent-2); }
+        table { width:100%; border-collapse:collapse; font-size:0.82rem; }
+        th, td { padding:10px 12px; text-align:right; border-bottom:1px solid var(--border-color); }
+        th { color:var(--text-muted); font-weight:600; font-size:0.7rem; }
+        .badge { padding:4px 10px; border-radius:14px; font-size:0.7rem; font-weight:600; display:inline-block; }
+        .badge-success { background:rgba(44,122,123,0.15); color:#276749; }
+        .badge-warning { background:rgba(214,158,46,0.15); color:#975a16; }
+        .badge-danger { background:rgba(197,48,48,0.1); color:#b91c1c; }
+        .badge-info { background:rgba(49,130,206,0.15); color:#2b6cb0; }
+        body.dark .badge-success { background:rgba(44,122,123,0.25); color:#81e6d9; }
+        body.dark .badge-warning { background:rgba(214,158,46,0.25); color:#fbd38d; }
+        body.dark .badge-danger { background:rgba(197,48,48,0.25); color:#feb2b2; }
+        body.dark .badge-info { background:rgba(49,130,206,0.25); color:#bee3f8; }
+        .question-block { background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-md); padding:14px; margin:10px 0; }
+        .options-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+        .theme-toggle { background:var(--bg-card); border:1px solid var(--border-color); border-radius:20px; padding:6px 10px; cursor:pointer; font-size:1rem; color:var(--text-primary); transition:0.2s; }
+        .theme-toggle:hover { background:rgba(0,0,0,0.03); }
+        .image-zoomable { cursor:pointer; transition: transform 0.2s; }
+        .image-zoomable:hover { transform: scale(1.05); }
+        .image-modal {
+            display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+            background:rgba(0,0,0,0.85); z-index:9999; align-items:center; justify-content:center;
+        }
+        .image-modal.show { display:flex; }
+        .image-modal img { max-width:90%; max-height:90%; border-radius:16px; box-shadow:0 0 40px rgba(0,0,0,0.5); }
+        .image-modal .close-btn {
+            position:absolute; top:20px; right:20px; background:var(--bg-card); color:var(--text-primary);
+            border:none; border-radius:50%; width:40px; height:40px; font-size:1.5rem; cursor:pointer;
+            display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(0,0,0,0.3);
+        }
+        .record-btn { background:var(--danger); color:#fff; border:none; animation:pulse 1.5s infinite; }
+        @keyframes pulse { 0%{box-shadow:0 0 0 0 rgba(197,48,48,0.4);} 70%{box-shadow:0 0 0 10px rgba(197,48,48,0);} 100%{box-shadow:0 0 0 0 rgba(197,48,48,0);} }
+        .search-box { display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; align-items:center; }
+        .search-box input { flex:1; min-width:200px; padding:8px 14px; border-radius:30px; border:1.5px solid var(--border-color); background:var(--bg-card); color:var(--text-primary); font-family:var(--font); font-size:0.85rem; outline:none; }
+        .search-box input:focus { border-color:var(--accent-2); }
+        .search-box .btn { flex-shrink:0; }
+        .assignment-section { border:2px solid var(--border-color); border-radius:var(--radius-lg); padding:16px; margin-top:20px; }
+        .assignment-section h4 { font-size:1rem; margin-bottom:12px; }
+        .section-corrected { border-color:rgba(44,122,123,0.4); }
+        .section-pending { border-color:rgba(214,158,46,0.4); }
+        .section-missing { border-color:rgba(197,48,48,0.4); }
+        @media (max-width:768px) {
+            .sidebar { position:fixed; right:-280px; top:0; bottom:0; z-index:55; }
+            .sidebar.open { right:0; }
+        }
+        .menu-toggle { display:none; background:none; border:none; color:var(--text-primary); font-size:1.6rem; cursor:pointer; }
+        @media (max-width:768px) { .menu-toggle { display:block; } }
+        .overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.3); z-index:40; }
+        .overlay.show { display:block; }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+</head>
+<body>
+<div class="overlay" id="overlay"></div>
+<aside class="sidebar" id="sidebar">
+    <div class="logo-icon" id="sidebarLogo">M</div>
+    <nav>
+        <a class="active" data-tab="stats">📊 الإحصائيات</a>
+        <a data-tab="students">👥 الطلاب</a>
+        <a data-tab="groups">👨‍👩‍👧‍👦 المجموعات</a>
+        <a data-tab="assignments">📄 الواجبات</a>
+        <a data-tab="exams">📝 الامتحانات</a>
+        <a data-tab="schedules">📅 جداول الحصص</a>
+        <a data-tab="notifications">🔔 الإشعارات</a>
+        <a data-tab="questions">💬 الأسئلة</a>
+        <a data-tab="whatsapp">💬 واتساب</a>
+        <a data-tab="settings">⚙️ الإعدادات</a>
+    </nav>
+</aside>
+<div class="main">
+    <div class="topbar">
+        <button class="menu-toggle" id="menuToggle">☰</button>
+        <h2>📊 لوحة التحكم</h2>
+        <div style="display:flex; gap:10px; align-items:center;">
+            <button class="theme-toggle" id="themeToggle" title="الوضع الليلي">🌙</button>
+            <a href="index.html" class="btn" target="_blank">الموقع</a>
+        </div>
+    </div>
+    <div class="content" id="adminContent"><div class="card"><p>⏳ جاري التحميل...</p></div></div>
+</div>
+<div class="image-modal" id="imageModal">
+    <button class="close-btn" onclick="closeImageModal()">✕</button>
+    <img id="modalImage" src="" alt="صورة مكبرة">
+</div>
+<script>
+    const firebaseConfig = {
+        apiKey: "AIzaSyA4ilrZB4P8wwRDLdminQkwS9KYY50XY8c",
+        authDomain: "mr-mohammed-elhafawy.firebaseapp.com",
+        projectId: "mr-mohammed-elhafawy",
+        storageBucket: "mr-mohammed-elhafawy.firebasestorage.app",
+        messagingSenderId: "959200386071",
+        appId: "1:959200386071:web:a70902bb0d6064e6081052"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const CLOUDINARY_CLOUD = "deaevfmvm", CLOUDINARY_PRESET = "ml_default", CLOUDINARY_KEY = "864215656447737";
+    const GRADES = ['الأول الإعدادي','الثاني الإعدادي','الثالث الإعدادي','الأول الثانوي','الثاني الثانوي','الثالث الثانوي'];
+    const SUBJECTS = {
+        'الأول الإعدادي':'Science','الثاني الإعدادي':'Science','الثالث الإعدادي':'Science',
+        'الأول الثانوي':'Integrated Science','الثاني الثانوي':'Physics','الثالث الثانوي':'Physics'
+    };
+    const container = document.getElementById('adminContent');
+    const sidebarLinks = document.querySelectorAll('.sidebar nav a');
+    let currentGradeFilter = 'all';
+    const themeToggle = document.getElementById('themeToggle');
+    if (localStorage.getItem('darkMode') === 'true') { document.body.classList.add('dark'); themeToggle.textContent = '☀️'; }
+    themeToggle.addEventListener('click', () => { document.body.classList.toggle('dark'); const isDark = document.body.classList.contains('dark'); localStorage.setItem('darkMode', isDark); themeToggle.textContent = isDark ? '☀️' : '🌙'; });
+    async function loadLogo() {
+        const doc = await db.collection('settings').doc('platform').get().catch(() => null);
+        if (doc && doc.exists && doc.data().logo) document.getElementById('sidebarLogo').innerHTML = `<img src="${doc.data().logo}" alt="لوجو">`;
+    }
+    loadLogo();
+    function openImageModal(imgSrc) { document.getElementById('imageModal').classList.add('show'); document.getElementById('modalImage').src = imgSrc; }
+    window.closeImageModal = function() { document.getElementById('imageModal').classList.remove('show'); };
+    document.getElementById('imageModal').addEventListener('click', function(e) { if (e.target === this) closeImageModal(); });
+    function attachImageZoomEvents() {
+        document.querySelectorAll('img').forEach(img => { if (!img.classList.contains('image-zoomable')) { img.classList.add('image-zoomable'); img.addEventListener('click', function(e) { e.stopPropagation(); openImageModal(this.src); }); } });
+    }
+    const observer = new MutationObserver(() => attachImageZoomEvents());
+    observer.observe(document.getElementById('adminContent'), { childList: true, subtree: true });
+    function renderGradeFilterBar() {
+        return `<div class="grade-filter-bar"><button class="${currentGradeFilter==='all'?'active':''}" onclick="window.setGradeFilter('all')">الكل</button>${GRADES.map(g => `<button class="${currentGradeFilter===g?'active':''}" onclick="window.setGradeFilter('${g}')">${g}<br><small>${SUBJECTS[g]}</small></button>`).join('')}</div>`;
+    }
+    window.setGradeFilter = function(grade) { currentGradeFilter = grade; const active = document.querySelector('.sidebar nav a.active'); if(active) loadTab(active.dataset.tab); };
+    sidebarLinks.forEach(link => { link.addEventListener('click', (e) => { e.preventDefault(); sidebarLinks.forEach(l => l.classList.remove('active')); link.classList.add('active'); currentGradeFilter='all'; loadTab(link.dataset.tab); }); });
+    function loadTab(tab) { switch(tab) { case 'stats': renderStats(); break; case 'students': renderStudents(); break; case 'groups': renderGroups(); break; case 'assignments': renderAssignments(); break; case 'exams': renderExams(); break; case 'schedules': renderSchedules(); break; case 'notifications': renderNotifications(); break; case 'questions': renderQuestions(); break; case 'whatsapp': renderWhatsApp(); break; case 'settings': renderSettings(); break; } }
+    async function getStudentName(sid) { const d = await db.collection('students').doc(sid).get().catch(()=>null); return (d&&d.exists)?(d.data().name||'غير معروف'):'غير معروف'; }
+    async function populateGroupSelect(selectId, grade, selectedGroupId=null) { const sel = document.getElementById(selectId); if(!sel) return; sel.innerHTML = '<option value="">اختر مجموعة (اختياري)</option>'; if(grade) { const snap = await db.collection('groups').where('grade','==',grade).get().catch(()=>({empty:true,docs:[]})); if(!snap.empty) snap.forEach(d => sel.innerHTML += `<option value="${d.id}" ${selectedGroupId===d.id?'selected':''}>${d.data().name}</option>`); } }
+
+    // ========================== STATS ==========================
+    async function renderStats() {
+        container.innerHTML = '<div class="card"><p>⏳ جاري تجميع الإحصائيات...</p></div>';
+        try {
+            const now = new Date(), weekAgo = new Date(now.getTime()-7*24*60*60*1000), monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+            const [ss, es, as, subs, ers, nss] = await Promise.all([db.collection('students').get(), db.collection('exams').get(), db.collection('assignments').get(), db.collection('assignmentSubmissions').where('submittedAt','>=',weekAgo).get().catch(()=>({size:0})), db.collection('examResults').where('createdAt','>=',weekAgo).get().catch(()=>({size:0})), db.collection('students').where('createdAt','>=',monthStart).get().catch(()=>({size:0}))]);
+            const total=ss.size, exams=es.size, assigns=as.size, recSubs=subs.size||0, recExams=ers.size||0, newStu=nss.size||0;
+            const growth = total>0?(newStu/total):0, projected = Math.round(total*(1+growth*12));
+            container.innerHTML = `<div class="card fade-in-up"><h3>📊 الإحصائيات الشاملة</h3></div><div class="stats-grid"><div class="card stat-box"><div class="value">${total}</div><div class="label">إجمالي الطلاب</div></div><div class="card stat-box"><div class="value">${exams}</div><div class="label">الامتحانات المنشأة</div></div><div class="card stat-box"><div class="value">${assigns}</div><div class="label">الواجبات المنشأة</div></div><div class="card stat-box"><div class="value">${recExams}</div><div class="label">امتحانات (آخر 7 أيام)</div></div><div class="card stat-box"><div class="value">${recSubs}</div><div class="label">واجبات (آخر 7 أيام)</div></div><div class="card stat-box"><div class="value">${newStu}</div><div class="label">طلاب جدد هذا الشهر</div></div><div class="card stat-box"><div class="value">${projected}</div><div class="label">توقعات نهاية السنة</div></div></div>`;
+            attachImageZoomEvents();
+        } catch(e) { container.innerHTML = '<div class="card"><p>❌ حدث خطأ</p></div>'; }
+    }
+
+    // ========================== STUDENTS (with search button) ==========================
+    async function renderStudents() {
+        let q = db.collection('students'); if(currentGradeFilter!=='all') q = q.where('grade','==',currentGradeFilter);
+        const snap = await q.get();
+        let html = `<div class="card fade-in-up"><h3>👥 الطلاب (${snap.size})</h3>${renderGradeFilterBar()}
+            <div class="search-box"><input type="text" id="studentSearch" placeholder="🔍 ابحث عن طالب بالاسم..."><button class="btn btn-primary" onclick="filterStudentsTable()">بحث</button></div>
+            <div style="overflow-x:auto;"><table id="studentsTable"><thead><tr><th>الاسم</th><th>الصف</th><th>المادة</th><th>الهاتف</th><th>الحالة</th><th>إجراءات</th></tr></thead><tbody>`;
+        snap.forEach(d => { const s = d.data(); html += `<tr data-name="${(s.name||'').toLowerCase()}"><td>${s.name||''}</td><td>${s.grade||''}</td><td>${SUBJECTS[s.grade]||''}</td><td>${s.phone||''}</td><td><span class="badge ${s.status==='مفعل'?'badge-success':s.status==='محظور'?'badge-danger':'badge-warning'}">${s.status||'قيد المراجعة'}</span></td><td><button class="btn btn-sm" onclick="viewStudentDetails('${d.id}')">📋 تفاصيل</button><button class="btn btn-sm" onclick="window.updateStudent('${d.id}','مفعل')">تفعيل</button><button class="btn btn-sm btn-danger" onclick="window.updateStudent('${d.id}','محظور')">حظر</button></td></tr>`; });
+        html += '</tbody></table></div></div>'; container.innerHTML = html; attachImageZoomEvents();
+        // دالة البحث بزر
+        window.filterStudentsTable = function() {
+            const input = document.getElementById('studentSearch');
+            const filter = input.value.toLowerCase();
+            const rows = document.querySelectorAll('#studentsTable tbody tr');
+            rows.forEach(row => {
+                const name = row.getAttribute('data-name') || '';
+                row.style.display = name.includes(filter) ? '' : 'none';
+            });
+        };
+    }
+    window.updateStudent = async (id, status) => { await db.collection('students').doc(id).update({status}); renderStudents(); };
+    window.viewStudentDetails = async (sid) => {
+        const sDoc = await db.collection('students').doc(sid).get(); if(!sDoc.exists) return;
+        const s = sDoc.data(); let gName='—';
+        const gSnap = await db.collection('groups').where('grade','==',s.grade).get().catch(()=>({empty:true,docs:[]}));
+        if(!gSnap.empty) for(const g of gSnap.docs) { if(g.data().students?.includes(sid)) { gName=g.data().name; break; } }
+        const assigns=[], aSnap = await db.collection('assignments').where('grade','==',s.grade).get().catch(()=>({empty:true,docs:[]}));
+        if(!aSnap.empty) aSnap.forEach(d => assigns.push({id:d.id,...d.data()}));
+        const subSnap = await db.collection('assignmentSubmissions').where('studentId','==',sid).get().catch(()=>({empty:true,docs:[]}));
+        const subs={}; if(!subSnap.empty) subSnap.forEach(d => { const sd=d.data(); subs[sd.assignmentId]={id:d.id,...sd}; });
+        const erSnap = await db.collection('examResults').where('studentId','==',sid).orderBy('createdAt','desc').get().catch(()=>({empty:true,docs:[]}));
+        const ers=[]; if(!erSnap.empty) erSnap.forEach(d => ers.push({id:d.id,...d.data()}));
+        const avg = ers.length?Math.round(ers.reduce((a,b)=>a+(b.percentage||0),0)/ers.length):0;
+        const aCount = Object.values(subs).filter(x=>x.score!==undefined).length;
+        const wa = `https://wa.me/${s.parentPhone||''}?text=${encodeURIComponent(`تقرير: ${s.name}\nالصف: ${s.grade}\nمتوسط: ${avg}%\nواجبات: ${aCount}`)}`;
+        let html = `<div class="card fade-in-up"><h3>📋 ${s.name}</h3><p>الصف: ${s.grade} | المجموعة: ${gName} | المادة: ${SUBJECTS[s.grade]||''}</p><p>الهاتف: ${s.phone||'—'} | ولي الأمر: ${s.parentPhone||'—'}</p><p>البريد: ${s.email||'—'} | الحالة: <span class="badge ${s.status==='مفعل'?'badge-success':'badge-warning'}">${s.status}</span></p><div style="display:flex;gap:10px;margin:10px 0;"><button class="btn" onclick="renderStudents()">رجوع</button><a href="${wa}" target="_blank" class="btn btn-whatsapp">💬 واتساب</a></div></div>`;
+        html += `<div class="card"><h3>📄 الواجبات</h3><table><thead><tr><th>الواجب</th><th>الحالة</th><th>الدرجة</th></tr></thead><tbody>`;
+        assigns.forEach(a => { const sub=subs[a.id]; html += `<tr><td>${a.title||'—'}</td><td>${sub?(sub.score!==undefined?'✅ مصحح':'⏳ مسلّم'):'❌ لم يسلم'}</td><td>${sub?.score??'—'}</td></tr>`; });
+        html += '</tbody></table></div><div class="card"><h3>📝 الامتحانات</h3><table><thead><tr><th>الامتحان</th><th>المحاولة</th><th>الدرجة</th><th>النسبة</th></tr></thead><tbody>';
+        ers.forEach(r => { html += `<tr><td>${r.examName||''}</td><td>${r.attempt||1}</td><td>${r.score||0}/${r.total||0}</td><td>${r.percentage||0}%</td></tr>`; });
+        html += '</tbody></table></div>'; container.innerHTML = html; attachImageZoomEvents();
+    };
+
+    // ========================== GROUPS (unchanged) ==========================
+    async function renderGroups() {
+        let q = db.collection('groups'); if(currentGradeFilter!=='all') q = q.where('grade','==',currentGradeFilter);
+        const snap = await q.get();
+        let html = `<div class="card fade-in-up"><h3>👨‍👩‍👧‍👦 المجموعات (${snap.size})</h3>${renderGradeFilterBar()}<button class="btn btn-primary" onclick="window.showAddGroup()">➕ إنشاء مجموعة</button><div id="addGroupForm" style="display:none;margin-top:12px;"><input id="groupName" placeholder="اسم المجموعة" style="width:100%;padding:8px;border-radius:20px;border:1px solid var(--border-color);background:var(--bg-card);color:var(--text-primary);margin-bottom:8px;"><select id="groupGrade" style="width:100%;padding:8px;border-radius:20px;border:1px solid var(--border-color);background:var(--bg-card);color:var(--text-primary);margin-bottom:8px;"><option value="">اختر الصف</option>${GRADES.map(g=>`<option>${g}</option>`).join('')}</select><button class="btn btn-primary" onclick="window.addGroup()">حفظ</button></div></div>`;
+        html += '<div class="card fade-in-up"><div style="overflow-x:auto;"><table><thead><tr><th>المجموعة</th><th>الصف</th><th>المادة</th><th>الطلاب</th><th>إجراءات</th></tr></thead><tbody>';
+        snap.forEach(d => { const g = d.data(); html += `<tr><td>${g.name}</td><td>${g.grade}</td><td>${SUBJECTS[g.grade]||''}</td><td>${g.students?.length||0}</td><td><button class="btn btn-sm" onclick="window.manageGroupStudents('${d.id}')">إدارة</button><button class="btn btn-sm btn-danger" onclick="window.deleteGroup('${d.id}')">حذف</button></td></tr>`; });
+        html += '</tbody></table></div></div>'; container.innerHTML = html; attachImageZoomEvents();
+    }
+    window.showAddGroup = () => document.getElementById('addGroupForm').style.display='block';
+    window.addGroup = async () => { const n=document.getElementById('groupName').value, g=document.getElementById('groupGrade').value; if(!n||!g) return alert('أكمل'); await db.collection('groups').add({name:n,grade:g,students:[]}); renderGroups(); };
+    window.deleteGroup = async id => { if(confirm('حذف؟')){await db.collection('groups').doc(id).delete(); renderGroups();} };
+    window.manageGroupStudents = async (gid) => {
+        const gDoc = await db.collection('groups').doc(gid).get(); const g = gDoc.data();
+        const all = await db.collection('students').where('grade','==',g.grade).get();
+        let html = `<div class="card fade-in-up"><h3>إدارة طلاب ${g.name}</h3>`;
+        all.forEach(d => { const s=d.data(); const inG=g.students?.includes(d.id); html += `<div style="display:flex;justify-content:space-between;padding:6px 0;">${s.name}<button class="btn btn-sm ${inG?'btn-danger':'btn-primary'}" onclick="window.toggleStudentInGroup('${gid}','${d.id}',${!inG})">${inG?'إزالة':'إضافة'}</button></div>`; });
+        html += '<button class="btn" onclick="renderGroups()">رجوع</button></div>'; container.innerHTML = html; attachImageZoomEvents();
+    };
+    window.toggleStudentInGroup = async (gid, sid, add) => {
+        const ref = db.collection('groups').doc(gid);
+        if(add) { const gDoc = await ref.get(); const grade = gDoc.data().grade; const allG = await db.collection('groups').where('grade','==',grade).get(); const batch = db.batch(); allG.forEach(d => { if(d.data().students?.includes(sid)) batch.update(d.ref,{students:firebase.firestore.FieldValue.arrayRemove(sid)}); }); batch.update(ref,{students:firebase.firestore.FieldValue.arrayUnion(sid)}); await batch.commit(); }
+        else { await ref.update({students:firebase.firestore.FieldValue.arrayRemove(sid)}); }
+        window.manageGroupStudents(gid);
+    };
+
+    // ========================== ASSIGNMENTS (with sections, search button, maxScore) ==========================
+    async function renderAssignments() {
+        let q = db.collection('assignments'); if(currentGradeFilter!=='all') q = q.where('grade','==',currentGradeFilter);
+        const snap = await q.get();
+        let html = `<div class="card fade-in-up"><h3>📄 الواجبات (${snap.size})</h3>${renderGradeFilterBar()}<button class="btn btn-primary" onclick="window.showAddAssignment()">➕ إنشاء واجب</button></div>`;
+        html += '<div class="card fade-in-up"><div style="overflow-x:auto;"><table><thead><tr><th>العنوان</th><th>الصف</th><th>المادة</th><th>المجموعة</th><th>الدرجة النهائية</th><th>الصور</th><th>إجراءات</th></tr></thead><tbody>';
+        for(const d of snap.docs) { const a=d.data(); let gn='—'; if(a.groupId){const gd=await db.collection('groups').doc(a.groupId).get().catch(()=>null); if(gd&&gd.exists) gn=gd.data().name;} html += `<tr><td>${a.title||''}</td><td>${a.grade}</td><td>${SUBJECTS[a.grade]||''}</td><td>${gn}</td><td>${a.maxScore||''}</td><td>${a.images?.length||0}</td><td><button class="btn btn-sm" onclick="window.viewAssignmentSubmissions('${d.id}')">تسليمات</button><button class="btn btn-sm btn-danger" onclick="window.deleteAssignment('${d.id}')">حذف</button></td></tr>`; }
+        html += '</tbody></table></div></div>'; container.innerHTML = html; attachImageZoomEvents();
+    }
+
+    window.showAddAssignment = () => { window.assignmentUploadedImages=[]; container.innerHTML=`<div class="card fade-in-up"><h3>إنشاء واجب</h3><input id="assignTitle" placeholder="العنوان" style="width:100%;margin-bottom:8px;"><select id="assignGrade" onchange="window.onAssignGradeChange()" style="width:100%;margin-bottom:8px;"><option value="">اختر الصف</option>${GRADES.map(g=>`<option>${g}</option>`).join('')}</select><select id="assignGroup" style="width:100%;margin-bottom:8px;"><option value="">اختر مجموعة (اختياري)</option></select><input type="number" id="assignMaxScore" placeholder="الدرجة النهائية للواجب" style="width:100%;margin-bottom:8px;"><button class="btn" onclick="window.uploadAssignmentImages()">📷 رفع صور الأسئلة</button><div id="assignImagesPreview" style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0;"></div><button class="btn btn-primary" onclick="window.addAssignment()">حفظ</button></div>`; };
+    window.onAssignGradeChange = async () => { const grade = document.getElementById('assignGrade').value; await populateGroupSelect('assignGroup', grade); };
+    window.uploadAssignmentImages = () => { window.cloudinary.openUploadWidget({ cloudName:CLOUDINARY_CLOUD, uploadPreset:CLOUDINARY_PRESET, apiKey:CLOUDINARY_KEY, sources:['local','camera'], multiple:true, resourceType:'image', clientAllowedFormats:['png','jpg','jpeg'], maxFileSize:5000000, language:'ar' }, (e,r) => { if(!e&&r?.event==='success'){window.assignmentUploadedImages.push(r.info.secure_url); const p=document.getElementById('assignImagesPreview'); if(p) p.innerHTML+=`<img src="${r.info.secure_url}" class="image-zoomable" style="width:60px;height:80px;object-fit:cover;border-radius:8px;">`;} }); };
+    window.addAssignment = async () => { const t=document.getElementById('assignTitle').value, g=document.getElementById('assignGrade').value, gid=document.getElementById('assignGroup').value, max=parseFloat(document.getElementById('assignMaxScore').value)||0; if(!t||!g) return alert('أكمل'); await db.collection('assignments').add({title:t,grade:g,groupId:gid||null,images:window.assignmentUploadedImages||[],maxScore:max,createdAt:firebase.firestore.FieldValue.serverTimestamp()}); renderAssignments(); };
+    window.deleteAssignment = async id => { if(confirm('حذف؟')){await db.collection('assignments').doc(id).delete(); renderAssignments();} };
+
+    // عرض تسليمات الواجب مع التقسيم إلى 3 أقسام + زر بحث
+    window.viewAssignmentSubmissions = async (assignId) => {
+        const assignDoc = await db.collection('assignments').doc(assignId).get(); if (!assignDoc.exists) return;
+        const assign = assignDoc.data(); const grade = assign.grade; const groupId = assign.groupId; const maxScore = assign.maxScore || 0;
+        let targetStudents = [];
+        if (groupId) {
+            const groupDoc = await db.collection('groups').doc(groupId).get().catch(() => null);
+            if (groupDoc && groupDoc.exists) { const studentIds = groupDoc.data().students || []; for (const sid of studentIds) { const sDoc = await db.collection('students').doc(sid).get().catch(() => null); if (sDoc && sDoc.exists) targetStudents.push({ id: sid, ...sDoc.data() }); } }
+        } else { const snap = await db.collection('students').where('grade', '==', grade).get().catch(() => ({ empty: true, docs: [] })); if (!snap.empty) snap.forEach(d => targetStudents.push({ id: d.id, ...d.data() })); }
+        const subsSnap = await db.collection('assignmentSubmissions').where('assignmentId', '==', assignId).get().catch(() => ({ empty: true, docs: [] }));
+        const submissions = {}; if (!subsSnap.empty) subsSnap.forEach(d => { const sub = d.data(); submissions[sub.studentId] = { id: d.id, ...sub }; });
+
+        // تقسيم الطلاب إلى 3 فئات
+        const corrected = [], pending = [], missing = [];
+        targetStudents.forEach(st => {
+            const sub = submissions[st.id];
+            if (sub && sub.score !== undefined && sub.score !== null && sub.score !== '') {
+                corrected.push({ student: st, sub });
+            } else if (sub && (sub.score === undefined || sub.score === null || sub.score === '')) {
+                pending.push({ student: st, sub });
+            } else {
+                missing.push({ student: st, sub: null });
+            }
+        });
+
+        let html = `<div class="card fade-in-up"><h3>تسليمات الواجب: ${assign.title || ''}</h3><p style="color:var(--text-muted);">الصف: ${grade} | المجموعة: ${groupId ? (await db.collection('groups').doc(groupId).get().then(g=>g.exists?g.data().name:'—').catch(()=>'—')) : 'الكل'} | الدرجة النهائية: ${maxScore}</p><button class="btn" onclick="renderAssignments()">رجوع</button><br><br>`;
+
+        // دالة مساعدة لعرض جدول مع زر بحث
+        function renderSection(title, list, badgeClass, showScore=true) {
+            let sectionHtml = `<div class="assignment-section ${badgeClass}"><h4>${title} (${list.length})</h4>`;
+            if (list.length > 0) {
+                const tableId = 'section-' + title.replace(/\s/g,'');
+                sectionHtml += `<div class="search-box"><input type="text" id="search-${tableId}" placeholder="🔍 ابحث عن طالب..."><button class="btn btn-primary" onclick="filterSectionTable('search-${tableId}','${tableId}')">بحث</button></div>`;
+                sectionHtml += `<div style="overflow-x:auto;"><table id="${tableId}"><thead><tr><th>الطالب</th><th>الحالة</th>${showScore?'<th>الدرجة</th>':''}<th>صور الحل</th><th>تصحيح</th></tr></thead><tbody>`;
+                list.forEach(item => {
+                    const st = item.student, sub = item.sub;
+                    const statusText = sub ? (sub.score !== undefined && sub.score !== null && sub.score !== '' ? '✅ مصحح' : '⏳ مسلّم') : '❌ لم يسلم';
+                    const badgeClass2 = sub ? (sub.score !== undefined && sub.score !== null && sub.score !== '' ? 'badge-success' : 'badge-warning') : 'badge-danger';
+                    const scoreDisplay = sub && sub.score !== undefined && sub.score !== null && sub.score !== '' ? sub.score : '—';
+                    const imagesHtml = sub?.images ? sub.images.map(i => `<img src="${i}" class="image-zoomable" style="width:30px;height:30px;object-fit:cover;border-radius:4px;margin:2px;" onclick="event.stopPropagation(); openImageModal('${i}')">`).join('') : '—';
+                    const correctionHtml = sub ? `<input id="score-${sub.id}" placeholder="درجة" value="${sub.score ?? ''}" style="width:60px;margin:4px;"><input id="feedback-${sub.id}" placeholder="تعليق" value="${sub.feedback ?? ''}" style="width:80px;"><button class="btn btn-sm btn-primary" onclick="window.correctSubmission('${sub.id}','${assignId}')">تصحيح</button>` : '—';
+                    sectionHtml += `<tr data-name="${(st.name||'').toLowerCase()}"><td>${st.name || '—'}</td><td><span class="badge ${badgeClass2}">${statusText}</span></td>${showScore?`<td>${scoreDisplay}</td>`:''}<td>${imagesHtml}</td><td>${correctionHtml}</td></tr>`;
+                });
+                sectionHtml += '</tbody></table></div>';
+            } else {
+                sectionHtml += `<p style="color:var(--text-muted);">لا يوجد طلاب في هذه الفئة</p>`;
+            }
+            sectionHtml += '</div>';
+            return sectionHtml;
+        }
+
+        html += renderSection('✅ واجبات مصححة', corrected, 'section-corrected', true);
+        html += renderSection('⏳ واجبات لم تُصحح', pending, 'section-pending', false);
+        html += renderSection('❌ لم يسلموا الواجب', missing, 'section-missing', false);
+
+        html += '</div>'; container.innerHTML = html; attachImageZoomEvents();
+
+        // تعريف دالة البحث العامة
+        window.filterSectionTable = function(inputId, tableId) {
+            const input = document.getElementById(inputId);
+            const filter = input.value.toLowerCase();
+            const rows = document.querySelectorAll(`#${tableId} tbody tr`);
+            rows.forEach(row => {
+                const name = row.getAttribute('data-name') || '';
+                row.style.display = name.includes(filter) ? '' : 'none';
+            });
+        };
+    };
+
+    window.correctSubmission = async (subId, assignId) => { const scoreEl = document.getElementById('score-' + subId); const feedbackEl = document.getElementById('feedback-' + subId); const score = scoreEl?.value; const feedback = feedbackEl?.value; if (score === '' || isNaN(score)) return alert('أدخل درجة صحيحة'); await db.collection('assignmentSubmissions').doc(subId).update({ score: Number(score) || 0, feedback }); alert('تم التصحيح'); window.viewAssignmentSubmissions(assignId); };
+
+    // ========================== EXAMS (with sections: pass/fail/cheat + search button) ==========================
+    async function renderExams() {
+        let q = db.collection('exams'); if(currentGradeFilter!=='all') q = q.where('grade','==',currentGradeFilter);
+        const snap = await q.get();
+        let html = `<div class="card fade-in-up"><h3>📝 الامتحانات (${snap.size})</h3>${renderGradeFilterBar()}<button class="btn btn-primary" onclick="window.showAddExam()">➕ إنشاء امتحان</button></div>`;
+        html += '<div class="card fade-in-up"><div style="overflow-x:auto;"><table><thead><tr><th>الاسم</th><th>الصف</th><th>المادة</th><th>الزمن</th><th>الأسئلة</th><th>إجراءات</th></tr></thead><tbody>';
+        snap.forEach(d => { const e=d.data(); html += `<tr><td>${e.name}</td><td>${e.grade}</td><td>${SUBJECTS[e.grade]||''}</td><td>${e.time} دقيقة</td><td>${e.questions?.length||0}</td><td><button class="btn btn-sm" onclick="window.viewExamResults('${d.id}')">نتائج</button><button class="btn btn-sm btn-danger" onclick="window.deleteExam('${d.id}')">حذف</button></td></tr>`; });
+        html += '</tbody></table></div></div>'; container.innerHTML = html; attachImageZoomEvents();
+    }
+
+    window.viewExamResults = async (eid) => {
+        const ed = await db.collection('exams').doc(eid).get(); if(!ed.exists) return; const exam=ed.data();
+        const snap = await db.collection('examResults').where('examId','==',eid).get(); const results=[];
+        for(const d of snap.docs) { const r=d.data(); const sn=await getStudentName(r.studentId); results.push({id:d.id,...r,studentName:sn}); }
+        // تقسيم إلى ثلاث فئات
+        const pass = results.filter(r => r.percentage >= 50 && r.reason !== 'تم الخروج من الامتحان');
+        const fail = results.filter(r => r.percentage < 50 && r.reason !== 'تم الخروج من الامتحان');
+        const cheat = results.filter(r => r.reason === 'تم الخروج من الامتحان');
+
+        let html = `<div class="card fade-in-up"><h3>📊 نتائج: ${exam.name}</h3><button class="btn" onclick="renderExams()">رجوع</button><br><br>`;
+
+        function renderResultSection(title, list, badgeType) {
+            let secHtml = `<div class="assignment-section ${badgeType}"><h4>${title} (${list.length})</h4>`;
+            if (list.length > 0) {
+                const tableId = 'result-' + title.replace(/\s/g,'');
+                secHtml += `<div class="search-box"><input type="text" id="search-${tableId}" placeholder="🔍 ابحث عن طالب..."><button class="btn btn-primary" onclick="filterSectionTable('search-${tableId}','${tableId}')">بحث</button></div>`;
+                secHtml += `<div style="overflow-x:auto;"><table id="${tableId}"><thead><tr><th>#</th><th>الطالب</th><th>محاولة</th><th>الدرجة</th><th>النسبة</th><th>سبب التسليم</th></tr></thead><tbody>`;
+                list.forEach((r,i) => {
+                    const isCheat = r.reason === 'تم الخروج من الامتحان';
+                    const badgeClass = isCheat ? 'badge-danger' : (r.percentage >= 85 ? 'badge-success' : 'badge-warning');
+                    secHtml += `<tr data-name="${(r.studentName||'').toLowerCase()}"><td>${i+1}</td><td>${r.studentName}</td><td>${r.attempt||1}</td><td>${r.score||0}/${r.total||0}</td><td><span class="badge ${badgeClass}">${r.percentage||0}% ${isCheat?'⚠️':''}</span></td><td>${r.reason||'—'}</td></tr>`;
+                });
+                secHtml += '</tbody></table></div>';
+            } else {
+                secHtml += `<p style="color:var(--text-muted);">لا يوجد طلاب في هذه الفئة</p>`;
+            }
+            secHtml += '</div>';
+            return secHtml;
+        }
+
+        html += renderResultSection('✅ ناجحين', pass, 'section-corrected');
+        html += renderResultSection('❌ راسبين', fail, 'section-missing');
+        html += renderResultSection('⚠️ محاولات غش / خروج', cheat, 'section-pending');
+
+        html += '</div>'; container.innerHTML = html; attachImageZoomEvents();
+
+        // إعادة تعريف دالة البحث (نفس الوظيفة المستخدمة في الواجبات)
+        window.filterSectionTable = function(inputId, tableId) {
+            const input = document.getElementById(inputId);
+            const filter = input.value.toLowerCase();
+            const rows = document.querySelectorAll(`#${tableId} tbody tr`);
+            rows.forEach(row => {
+                const name = row.getAttribute('data-name') || '';
+                row.style.display = name.includes(filter) ? '' : 'none';
+            });
+        };
+    };
+
+    window.showAddExam = () => { window.examQuestions=[]; container.innerHTML=`<div class="card fade-in-up"><h3>إنشاء امتحان</h3><input id="examName" placeholder="اسم الامتحان"><br><br><select id="examGrade"><option value="">اختر الصف</option>${GRADES.map(g=>`<option>${g}</option>`).join('')}</select><br><br><input id="examTime" type="number" placeholder="الوقت بالدقائق" value="60"><br><br><div id="examQuestionsList"></div><button class="btn" onclick="window.addExamQuestion()">➕ إضافة سؤال</button><br><br><button class="btn btn-primary" onclick="window.saveExam()">حفظ الامتحان</button></div>`; };
+    window.addExamQuestion = () => { const q={id:Date.now(),image:'',text:'',options:['','','',''],correct:0}; window.examQuestions.push(q); renderExamQuestions(); };
+    function renderExamQuestions() { const div=document.getElementById('examQuestionsList'); if(!div) return; div.innerHTML=window.examQuestions.map((q,i)=>`<div class="question-block"><strong>سؤال ${i+1}</strong><input value="${q.text}" oninput="window.updateEQ(${q.id},'text',this.value)" placeholder="نص السؤال" style="width:100%;"><br><button class="btn btn-sm" onclick="window.uploadExamQImage(${q.id})">صورة</button><input id="eqImg_${q.id}" value="${q.image}" readonly><div class="options-grid">${q.options.map((o,idx)=>`<input value="${o}" oninput="window.updateEQ(${q.id},'options',this.value,${idx})" placeholder="${['أ','ب','ج','د'][idx]}">`).join('')}</div><select onchange="window.updateEQ(${q.id},'correct',parseInt(this.value))"><option value="">الإجابة</option><option value="0" ${q.correct===0?'selected':''}>أ</option><option value="1" ${q.correct===1?'selected':''}>ب</option><option value="2" ${q.correct===2?'selected':''}>ج</option><option value="3" ${q.correct===3?'selected':''}>د</option></select></div>`).join(''); }
+    window.updateEQ = (id,field,value,idx) => { const q=window.examQuestions.find(x=>x.id===id); if(!q) return; if(field==='text') q.text=value; else if(field==='options') q.options[idx]=value; else if(field==='correct') q.correct=value; };
+    window.uploadExamQImage = (qid) => { window.cloudinary.openUploadWidget({ cloudName:CLOUDINARY_CLOUD, uploadPreset:CLOUDINARY_PRESET, apiKey:CLOUDINARY_KEY, sources:['local','camera'], multiple:false, resourceType:'image', clientAllowedFormats:['png','jpg','jpeg'], maxFileSize:5000000, language:'ar' }, (e,r) => { if(!e&&r?.event==='success'){document.getElementById('eqImg_'+qid).value=r.info.secure_url; const q=window.examQuestions.find(x=>x.id===qid); if(q) q.image=r.info.secure_url;} }); };
+    window.saveExam = async () => { const n=document.getElementById('examName')?.value, g=document.getElementById('examGrade')?.value, t=document.getElementById('examTime')?.value; if(!n||!g) return alert('أكمل'); await db.collection('exams').add({name:n,grade:g,time:t,questions:window.examQuestions,createdAt:firebase.firestore.FieldValue.serverTimestamp()}); renderExams(); };
+    window.deleteExam = async id => { if(confirm('حذف؟')){await db.collection('exams').doc(id).delete(); renderExams();} };
+
+    // ========================== SCHEDULES (unchanged) ==========================
+    async function renderSchedules() {
+        let q = db.collection('schedules'); if(currentGradeFilter!=='all') q = q.where('grade','==',currentGradeFilter);
+        const snap = await q.get();
+        let html = `<div class="card fade-in-up"><h3>📅 جداول الحصص (${snap.size})</h3>${renderGradeFilterBar()}<button class="btn btn-primary" onclick="window.showAddSchedule()">➕ إضافة جدول</button></div>`;
+        html += '<div class="card fade-in-up"><div style="overflow-x:auto;"><table><thead><tr><th>الصف</th><th>المادة</th><th>المجموعة</th><th>الصورة</th><th>إجراءات</th></tr></thead><tbody>';
+        for(const d of snap.docs) { const s=d.data(); let gn='عام'; if(s.groupId){const gd=await db.collection('groups').doc(s.groupId).get().catch(()=>null); if(gd&&gd.exists) gn=gd.data().name;} html += `<tr><td>${s.grade}</td><td>${SUBJECTS[s.grade]||''}</td><td>${gn}</td><td><img src="${s.image}" class="image-zoomable" style="width:60px;cursor:pointer;"></td><td><button class="btn btn-sm btn-danger" onclick="window.deleteSchedule('${d.id}')">حذف</button></td></tr>`; }
+        html += '</tbody></table></div></div>'; container.innerHTML = html; attachImageZoomEvents();
+    }
+    window.showAddSchedule = () => { container.innerHTML=`<div class="card fade-in-up"><h3>إضافة جدول</h3><select id="schedGrade" onchange="window.onSchedGradeChange()"><option value="">اختر الصف</option>${GRADES.map(g=>`<option>${g}</option>`).join('')}</select><br><br><select id="schedGroup"><option value="">اختر مجموعة (اختياري)</option></select><br><br><button class="btn" onclick="window.uploadScheduleImage()">📷 رفع صورة الجدول</button><input type="hidden" id="schedImage"><div id="schedPreview"></div><br><br><button class="btn btn-primary" onclick="window.saveSchedule()">حفظ</button></div>`; };
+    window.onSchedGradeChange = async () => { const g=document.getElementById('schedGrade').value; await populateGroupSelect('schedGroup',g); };
+    window.uploadScheduleImage = () => { window.cloudinary.openUploadWidget({ cloudName:CLOUDINARY_CLOUD, uploadPreset:CLOUDINARY_PRESET, apiKey:CLOUDINARY_KEY, sources:['local','camera','url'], multiple:false, resourceType:'image', clientAllowedFormats:['png','jpg','jpeg','gif'], maxFileSize:10000000, language:'ar' }, (e,r) => { if(e){alert('❌ فشل');return;} if(r&&r.event==='success'){document.getElementById('schedImage').value=r.info.secure_url; document.getElementById('schedPreview').innerHTML=`<img src="${r.info.secure_url}" style="max-width:200px;border-radius:12px;">`;} }); };
+    window.saveSchedule = async () => { const g=document.getElementById('schedGrade')?.value, gid=document.getElementById('schedGroup')?.value||null, img=document.getElementById('schedImage')?.value; if(!g||!img) return alert('أكمل'); await db.collection('schedules').add({grade:g,groupId:gid,image:img,createdAt:firebase.firestore.FieldValue.serverTimestamp()}); renderSchedules(); };
+    window.deleteSchedule = async id => { if(confirm('حذف؟')){await db.collection('schedules').doc(id).delete(); renderSchedules();} };
+
+    // ========================== NOTIFICATIONS (unchanged) ==========================
+    async function renderNotifications() {
+        const snap = await db.collection('notifications').orderBy('createdAt','desc').get();
+        let html = `<div class="card fade-in-up"><h3>🔔 الإشعارات</h3><button class="btn btn-primary" onclick="window.showAddNotification()">➕ إرسال إشعار</button></div>`;
+        html += '<div class="card fade-in-up"><div style="overflow-x:auto;"><table><thead><tr><th>النص</th><th>المستهدف</th><th>تنتهي</th></tr></thead><tbody>';
+        snap.forEach(d => { const n=d.data(); let t=n.targetGrade||'عام'; if(n.targetGroupId) t+=' (مجموعة)'; if(n.targetStudentId) t+=' (طالب)'; html += `<tr><td>${n.body}</td><td>${t}</td><td>${n.expiresAt?.toDate?.().toLocaleString('ar-EG')||''}</td></tr>`; });
+        html += '</tbody></table></div></div>'; container.innerHTML = html; attachImageZoomEvents();
+    }
+    window.showAddNotification = () => { container.innerHTML=`<div class="card fade-in-up"><h3>إرسال إشعار</h3><textarea id="notifBody" placeholder="نص الإشعار"></textarea><br><br><select id="notifGrade" onchange="window.onNotifGradeChange()"><option value="all">الكل</option>${GRADES.map(g=>`<option>${g}</option>`).join('')}</select><br><br><select id="notifGroup" onchange="window.onNotifGroupChange()"><option value="">اختر مجموعة</option></select><br><br><select id="notifStudent"><option value="">اختر طالب</option></select><br><br><label>تاريخ الانتهاء</label><input type="datetime-local" id="notifExpiry"><br><br><button class="btn btn-primary" onclick="window.sendNotification()">إرسال</button></div>`; };
+    window.onNotifGradeChange = async () => { const g=document.getElementById('notifGrade').value; await populateGroupSelect('notifGroup',g==='all'?'':g); document.getElementById('notifStudent').innerHTML='<option value="">اختر طالب</option>'; };
+    window.onNotifGroupChange = async () => { const gid=document.getElementById('notifGroup').value; const sel=document.getElementById('notifStudent'); sel.innerHTML='<option value="">اختر طالب</option>'; if(gid){const gd=await db.collection('groups').doc(gid).get().catch(()=>null); if(gd&&gd.exists){for(const sid of (gd.data().students||[])){const sd=await db.collection('students').doc(sid).get().catch(()=>null); if(sd&&sd.exists) sel.innerHTML+=`<option value="${sid}">${sd.data().name}</option>`;}}} };
+    window.sendNotification = async () => { const b=document.getElementById('notifBody')?.value, tg=document.getElementById('notifGrade')?.value, gid=document.getElementById('notifGroup')?.value, sid=document.getElementById('notifStudent')?.value, ex=document.getElementById('notifExpiry')?.value; if(!b) return alert('اكتب النص'); await db.collection('notifications').add({body:b,title:'تنبيه',targetGrade:tg==='all'?'all':tg,targetGroupId:gid||null,targetStudentId:sid||null,expiresAt:ex?new Date(ex):new Date(Date.now()+86400000),createdAt:firebase.firestore.FieldValue.serverTimestamp()}); renderNotifications(); };
+
+    // ========================== QUESTIONS (unchanged) ==========================
+    async function renderQuestions() {
+        let q = db.collection('questions').orderBy('createdAt','desc');
+        if(currentGradeFilter!=='all') q = q.where('grade','==',currentGradeFilter);
+        const snap = await q.get().catch(()=>({empty:true,docs:[]}));
+        let html = `<div class="card fade-in-up"><h3>💬 الأسئلة والمناقشات</h3>${renderGradeFilterBar()}</div>`;
+        if (snap.empty) {
+            html += '<div class="card fade-in-up"><p style="text-align:center;color:var(--text-muted);">لا توجد أسئلة في هذا الصف</p></div>';
+        } else {
+            snap.forEach(d => {
+                const qd = d.data();
+                const repliesHtml = (qd.replies || []).map(r => {
+                    const audioEl = r.audioUrl ? `<br><audio controls src="${r.audioUrl}" style="max-width:200px;margin-top:4px;"></audio>` : '';
+                    return `<div style="background:var(--bg-card);padding:4px;border-radius:6px;margin-bottom:4px;"><strong>${r.userName}:</strong> ${r.text||''} ${r.image?`<br><img src="${r.image}" style="max-width:80px;border-radius:8px;">`:''}${audioEl}</div>`;
+                }).join('');
+                html += `<div class="card fade-in-up">
+                    <strong>${qd.studentName}</strong> (${qd.grade} - ${SUBJECTS[qd.grade]||''}): ${qd.text||''}
+                    ${qd.image?`<br><img src="${qd.image}" style="max-width:200px;border-radius:8px;">`:''}
+                    <div style="margin-top:8px;">الردود: ${repliesHtml||'لا توجد ردود'}</div>
+                    <div style="display:flex;gap:8px;margin-top:8px;">
+                        <button class="btn btn-sm btn-primary" onclick="window.startVoiceReply('${d.id}')">🎤 رد صوتي</button>
+                        <button class="btn btn-sm" onclick="window.showTextReplyForm('${d.id}')">💬 رد نصي</button>
+                        <button class="btn btn-sm btn-danger" onclick="window.deleteQuestion('${d.id}')">حذف</button>
+                    </div>
+                    <div id="replyForm-${d.id}" style="display:none;margin-top:8px;">
+                        <textarea id="replyText-${d.id}" class="textarea-field" placeholder="اكتب ردك..."></textarea>
+                        <input type="hidden" id="replyImage-${d.id}">
+                        <button class="btn btn-sm" onclick="window.uploadReplyImage('${d.id}')">📷 صورة</button>
+                        <button class="btn btn-sm btn-primary" onclick="window.submitReply('${d.id}')">إرسال الرد</button>
+                    </div>
+                </div>`;
+            });
+        }
+        container.innerHTML = html;
+        attachImageZoomEvents();
+    }
+    window.deleteQuestion = async id => { if(confirm('حذف؟')){await db.collection('questions').doc(id).delete(); renderQuestions();} };
+    window.showTextReplyForm = (qId) => {
+        const form = document.getElementById('replyForm-'+qId);
+        if (form) form.style.display = form.style.display === 'none' ? 'block' : 'none';
+    };
+    window.uploadReplyImage = (qId) => {
+        window.cloudinary.openUploadWidget({
+            cloudName: CLOUDINARY_CLOUD, uploadPreset: CLOUDINARY_PRESET, apiKey: CLOUDINARY_KEY,
+            sources: ['local','camera'], multiple: false, resourceType: 'image',
+            clientAllowedFormats: ['png','jpg','jpeg'], maxFileSize: 5000000, language: 'ar'
+        }, (error, result) => {
+            if (!error && result?.event === 'success') {
+                document.getElementById('replyImage-'+qId).value = result.info.secure_url;
+            }
+        });
+    };
+    window.submitReply = async (qId) => {
+        const text = document.getElementById('replyText-'+qId).value.trim();
+        const image = document.getElementById('replyImage-'+qId).value;
+        if (!text && !image) return alert('اكتب رداً أو ارفع صورة');
+        await db.collection('questions').doc(qId).update({
+            replies: firebase.firestore.FieldValue.arrayUnion({
+                userId: 'admin',
+                userName: 'المستر',
+                text, image,
+                createdAt: new Date()
+            })
+        });
+        renderQuestions();
+    };
+    // تسجيل الصوت
+    let mediaRecorder;
+    let audioChunks = [];
+    window.startVoiceReply = async (qId) => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            audioChunks = [];
+            mediaRecorder.ondataavailable = e => { audioChunks.push(e.data); };
+            mediaRecorder.onstop = async () => {
+                const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                const formData = new FormData();
+                formData.append('file', audioBlob);
+                formData.append('upload_preset', CLOUDINARY_PRESET);
+                formData.append('cloud_name', CLOUDINARY_CLOUD);
+                formData.append('api_key', CLOUDINARY_KEY);
+                try {
+                    const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/raw/upload`, { method: 'POST', body: formData });
+                    const data = await res.json();
+                    const audioUrl = data.secure_url;
+                    await db.collection('questions').doc(qId).update({
+                        replies: firebase.firestore.FieldValue.arrayUnion({
+                            userId: 'admin',
+                            userName: 'المستر',
+                            text: '',
+                            audioUrl: audioUrl,
+                            createdAt: new Date()
+                        })
+                    });
+                    renderQuestions();
+                    alert('تم إرسال الرد الصوتي');
+                } catch (e) { alert('فشل رفع الصوت'); }
+                stream.getTracks().forEach(track => track.stop());
+            };
+            mediaRecorder.start();
+            alert('جاري التسجيل... اضغط "إيقاف" عند الانتهاء');
+            const stopBtn = document.createElement('button');
+            stopBtn.textContent = '⏹ إيقاف التسجيل';
+            stopBtn.className = 'btn btn-sm btn-danger';
+            stopBtn.onclick = () => { mediaRecorder.stop(); stopBtn.remove(); };
+            const card = document.querySelector(`.card:has(button[onclick="window.startVoiceReply('${qId}')"])`);
+            if (card) card.appendChild(stopBtn);
+        } catch (e) { alert('لم يتم السماح بالميكروفون'); }
+    };
+
+    // ========================== WHATSAPP (unchanged) ==========================
+    async function renderWhatsApp() {
+        container.innerHTML = `<div class="card fade-in-up"><h3>💬 إرسال رسالة واتساب</h3><div class="form-group"><label>الصف المستهدف</label><select id="waGrade" onchange="window.onWaGradeChange()"><option value="all">الكل</option>${GRADES.map(g=>`<option>${g}</option>`).join('')}</select></div><div class="form-group"><label>المجموعة (اختياري)</label><select id="waGroup" onchange="window.onWaGroupChange()"><option value="">اختر مجموعة</option></select></div><div class="form-group"><label>طالب محدد (اختياري)</label><select id="waStudent" onchange="window.onWaStudentChange()"><option value="">اختر طالب</option></select></div><div class="form-group"><label>نص الرسالة</label><textarea id="waMessage" rows="6" placeholder="سيظهر التقرير تلقائياً عند اختيار طالب..."></textarea></div><button class="btn btn-primary" onclick="window.sendWhatsApp()">📤 إرسال عبر واتساب</button><div id="waPreview" style="margin-top:16px;"></div></div>`;
+    }
+    window.onWaGradeChange = async () => { const g=document.getElementById('waGrade').value; await populateGroupSelect('waGroup',g==='all'?'':g); document.getElementById('waStudent').innerHTML='<option value="">اختر طالب</option>'; document.getElementById('waMessage').value=''; };
+    window.onWaGroupChange = async () => { const gid=document.getElementById('waGroup').value; const sel=document.getElementById('waStudent'); sel.innerHTML='<option value="">اختر طالب</option>'; if(gid){const gd=await db.collection('groups').doc(gid).get().catch(()=>null); if(gd&&gd.exists){for(const sid of (gd.data().students||[])){const sd=await db.collection('students').doc(sid).get().catch(()=>null); if(sd&&sd.exists) sel.innerHTML+=`<option value="${sid}">${sd.data().name}</option>`;}}} document.getElementById('waMessage').value=''; };
+    window.onWaStudentChange = async function() {
+        const sid = document.getElementById('waStudent').value; if(!sid){document.getElementById('waMessage').value=''; return;}
+        try {
+            const sd = await db.collection('students').doc(sid).get(); if(!sd.exists) return; const s=sd.data(); const g=s.grade||'';
+            const aa=[]; const asn=await db.collection('assignments').where('grade','==',g).get().catch(()=>({empty:true,docs:[]})); if(!asn.empty) asn.forEach(d=>aa.push({id:d.id,...d.data()}));
+            const ssn=await db.collection('assignmentSubmissions').where('studentId','==',sid).get().catch(()=>({empty:true,docs:[]})); const subs={}; if(!ssn.empty) ssn.forEach(d=>{const x=d.data(); subs[x.assignmentId]={id:d.id,...x};});
+            const esn=await db.collection('examResults').where('studentId','==',sid).orderBy('createdAt','desc').get().catch(()=>({empty:true,docs:[]})); const ers=[]; if(!esn.empty) esn.forEach(d=>ers.push({id:d.id,...d.data()}));
+            const avg=ers.length?Math.round(ers.reduce((a,b)=>a+(b.percentage||0),0)/ers.length):0;
+            const ac=Object.values(subs).filter(x=>x.score!==undefined).length;
+            const la=aa.slice(-3).map(a=>{const sub=subs[a.id]; return `${a.title}: ${sub?.score??'لم يسلم'}`;}).join('\n');
+            const le=ers.slice(-3).map(r=>`${r.examName}: ${r.percentage||0}%`).join('\n');
+            document.getElementById('waMessage').value = `👤 تقرير: ${s.name}\n📚 الصف: ${g}\n📊 متوسط: ${avg}%\n✅ واجبات: ${ac}\n\n📝 آخر 3 واجبات:\n${la}\n\n📋 آخر 3 امتحانات:\n${le}\n\n📞 ${s.parentPhone||'غير متوفر'}`;
+        } catch(e) {}
+    };
+    window.sendWhatsApp = async () => {
+        const msg=document.getElementById('waMessage')?.value.trim(); if(!msg) return alert('اكتب رسالة');
+        const g=document.getElementById('waGrade').value, gid=document.getElementById('waGroup').value, sid=document.getElementById('waStudent').value;
+        let recipients=[];
+        if(sid){const d=await db.collection('students').doc(sid).get(); if(d.exists&&d.data().parentPhone) recipients.push(d.data().parentPhone);}
+        else if(gid){const gd=await db.collection('groups').doc(gid).get(); if(gd.exists){for(const s of (gd.data().students||[])){const sd=await db.collection('students').doc(s).get(); if(sd.exists&&sd.data().parentPhone) recipients.push(sd.data().parentPhone);}}}
+        else if(g!=='all'){const sn=await db.collection('students').where('grade','==',g).get(); sn.forEach(d=>{if(d.data().parentPhone) recipients.push(d.data().parentPhone);});}
+        else {const sn=await db.collection('students').get(); sn.forEach(d=>{if(d.data().parentPhone) recipients.push(d.data().parentPhone);});}
+        if(recipients.length===0) return alert('لا يوجد أرقام');
+        recipients.forEach((p,i)=>{setTimeout(()=>{window.open(`https://wa.me/${p}?text=${encodeURIComponent(msg)}`,'_blank');},i*800);});
+        document.getElementById('waPreview').innerHTML=`<p style="color:var(--accent-3);">✅ جاري الإرسال إلى ${recipients.length} رقم...</p>`;
+    };
+
+    // ========================== SETTINGS (unchanged) ==========================
+    async function renderSettings() {
+        const d = await db.collection('settings').doc('platform').get().catch(()=>null);
+        const data = (d&&d.exists)?d.data():{};
+        container.innerHTML = `<div class="card fade-in-up"><h3>⚙️ إعدادات المنصة</h3><div class="form-group"><label>اسم المنصة</label><input id="setName" value="${data.name||'Mr. Mohammed Elhafawy'}"></div><div class="form-group"><label>الشعار النصي</label><input id="setSlogan" value="${data.slogan||'Science & Physics'}"></div><div class="form-group"><label>لوجو المنصة</label><button class="btn" onclick="window.uploadLogo()">📷 رفع لوجو</button><img id="logoPreview" src="${data.logo||''}" style="width:60px;margin-top:8px;border-radius:12px;"></div><button class="btn btn-primary" onclick="window.saveSettings()">حفظ</button></div>`;
+    }
+    window.uploadLogo = () => { window.cloudinary.openUploadWidget({ cloudName:CLOUDINARY_CLOUD, uploadPreset:CLOUDINARY_PRESET, apiKey:CLOUDINARY_KEY, sources:['local','camera'], multiple:false, resourceType:'image', clientAllowedFormats:['png','jpg','jpeg'], maxFileSize:2000000, language:'ar' }, (e,r) => { if(!e&&r?.event==='success'){document.getElementById('logoPreview').src=r.info.secure_url; window._uploadedLogo=r.info.secure_url;} }); };
+    window.saveSettings = async () => { const n=document.getElementById('setName').value, s=document.getElementById('setSlogan').value, l=window._uploadedLogo||document.getElementById('logoPreview').src; await db.collection('settings').doc('platform').set({name:n,slogan:s,logo:l},{merge:true}); alert('تم الحفظ'); if(l) document.getElementById('sidebarLogo').innerHTML=`<img src="${l}" alt="لوجو">`; else document.getElementById('sidebarLogo').innerHTML='M'; };
+
+    // ========================== INIT ==========================
+    renderStats();
+    document.getElementById('menuToggle').addEventListener('click', () => { document.getElementById('sidebar').classList.toggle('open'); document.getElementById('overlay').classList.toggle('show'); });
+    document.getElementById('overlay').addEventListener('click', () => { document.getElementById('sidebar').classList.remove('open'); document.getElementById('overlay').classList.remove('show'); });
+</script>
+</body>
+</html>
